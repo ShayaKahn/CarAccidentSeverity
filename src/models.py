@@ -8,7 +8,19 @@ from imblearn.over_sampling import RandomOverSampler, SMOTE
 from sklearn.metrics import f1_score, make_scorer
 from scipy.stats import randint as sp_randint
 from scikeras.wrappers import KerasClassifier
-from utils import *
+import numpy as np
+
+def correct_target(y):
+    """
+    Convert the labels start from 0 instead of 1.
+    y: Series, the labels
+    Return:
+    num_classes: int, the number of classes
+    y_corrected: array, the corrected labels
+    """
+    y_corrected = y - 1
+    num_classes = len(np.unique(y_corrected))
+    return num_classes, y_corrected
 
 def create_ANN_model(input_dimension, num_classes, num_layers, num_neurons,
                      learning_rate, weight_decay, activation, dropout_rate=0.2):
