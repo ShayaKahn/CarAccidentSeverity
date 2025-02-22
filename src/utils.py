@@ -187,6 +187,18 @@ def to_categorical(y):
     y_oh = tf.keras.utils.to_categorical(y_corrected, num_classes)
     return num_classes, y_oh
 
+def correct_target(y):
+    """
+    Convert the labels start from 0 instead of 1.
+    y: Series, the labels
+    Return:
+    num_classes: int, the number of classes
+    y_corrected: array, the corrected labels
+    """
+    y_corrected = y - 1
+    num_classes = len(np.unique(y_corrected))
+    return num_classes, y_corrected
+
 def random_search_ANN(model, X_train, y_train_oh, num_classes):
     """
     Perform a RandomizedSearchCV to find the best hyperparameters for
