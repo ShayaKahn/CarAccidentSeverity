@@ -1,17 +1,10 @@
 from sklearn.base import BaseEstimator, TransformerMixin
 import numpy as np
 
-# Define custom transformer to find outliers
 class IQRImputer(BaseEstimator, TransformerMixin):
-    """
-    Impute outliers using IQR method.
+    """Impute outliers using IQR method.
     """
     def __init__(self, col, method, top=False):
-        """
-        col: name of the feature
-        method: string, 'mean' or 'median'
-        top: boolean, if True impute only the top outliers, if False impute both top and bottom outliers
-        """
         self.col = col
         self.method = method
         self.top = top
@@ -24,7 +17,7 @@ class IQRImputer(BaseEstimator, TransformerMixin):
             self.metric = X[self.col].median()
         return self
 
-    def transform(self, X):
+    def transform(self, X, y=None):
         # apply IQR method
         X = X.copy()
         q1 = X[self.col].quantile(0.25)
@@ -37,18 +30,10 @@ class IQRImputer(BaseEstimator, TransformerMixin):
                 q3 - 1.5 * IQR)), self.col] = self.metric
         return X
 
-
-# Define custom transformer for upper bound
 class UpperBoundImputer(BaseEstimator, TransformerMixin):
-    """
-    Impute values greater than upper_bound.
+    """Impute values greater than upper_bound.
     """
     def __init__(self, col, method, upper_bound):
-        """
-        col: name of the feature
-        method: string, 'mean' or 'median'
-        upper_bound: the upper bound value
-        """
         self.col = col
         self.method = method
         self.upper_bound = upper_bound
@@ -66,11 +51,8 @@ class UpperBoundImputer(BaseEstimator, TransformerMixin):
         X.loc[X[self.col] > self.upper_bound, self.col] = self.metric
         return X
 
-
-# Define custom transformer for replacment in cathegorical features
 class Replace(BaseEstimator, TransformerMixin):
-    """
-    Replace values in a column
+    """Replace values in a column.
     """
     def __init__(self, col, mapping):
         """
@@ -88,20 +70,15 @@ class Replace(BaseEstimator, TransformerMixin):
         X[self.col] = X[self.col].replace(*self.mapping)
         return X
 
-# Define custom transformer for frequancy encoding
 class FrequencyEncoder(BaseEstimator, TransformerMixin):
-    """
-    Frequency encoding for categorical features
+    """Frequency encoding for categorical features.
     """
     def __init__(self, cols):
-        """
-        cols: list of column names
-        """
         self.cols = cols
         self.freq_maps = {}
 
     def fit(self, X, y=None):
-        # Compute frequency maps for each specified column
+        # Compute frequency maps for each specified column.
         for col in self.cols:
             self.freq_maps[col] = X[col].value_counts(normalize=True)
             vals = np.array(self.freq_maps[col].values)
@@ -116,10 +93,8 @@ class FrequencyEncoder(BaseEstimator, TransformerMixin):
             X.loc[:, col] = X[col].map(freq_map).astype('float64')
         return X
 
-# Define custom transformer to remove rows with Null values
 class DropNaRows(BaseEstimator, TransformerMixin):
-    """
-    Drop rows with Null values
+    """Drop rows with Null values.
     """
     def __init__(self, columns=None):
         self.columns = columns
