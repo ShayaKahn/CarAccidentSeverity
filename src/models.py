@@ -8,7 +8,7 @@ from sklearn.metrics import f1_score, make_scorer
 from tensorflow.keras import regularizers
 from scikeras.wrappers import KerasClassifier
 import xgboost
-from utils import *
+from src.utils import *
 
 def create_ANN_model(input_dimension, num_classes, num_layers, num_neurons,
                      learning_rate, weight_decay, activation, dropout_rate=0.2):
