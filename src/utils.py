@@ -36,7 +36,7 @@ def CM(y_test, y_pred):
 
     plt.xlabel('Predicted Class')
     plt.ylabel('True Class')
-    plt.title('Confusion Matrix - Decision Tree')
+    plt.title('Confusion Matrix')
     plt.colorbar(im)
     plt.show()
 

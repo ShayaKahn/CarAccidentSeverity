@@ -8,6 +8,9 @@ from sklearn.metrics import f1_score, make_scorer
 from tensorflow.keras import regularizers
 from scikeras.wrappers import KerasClassifier
 import xgboost
+from dask.distributed import Client, LocalCluster
+from xgboost import dask as dxgb
+import dask.dataframe as dd
 from src.utils import *
 
 def create_ANN_model(input_dimension, num_classes, num_layers, num_neurons,
@@ -66,7 +69,7 @@ def random_search_model(X_train, y_train, param_distributions, X_test=None,
         desired_counts: Integer, desired counts for the majority class in the case of oversampling and SMOTE.
         n_iter: Integer, number of iterations for RandomizedSearchCV.
         n_jobs: Integer, number of jobs to run in parallel.
-        verbose: Integer in {1,2,3}.
+        verbose: Integer in {1,2,3}.SMOTE
         n_splits: Integer, number of splits for cross-validation.
         tree_method: String for XGBoost.
         device: String for XGBoost.
@@ -184,3 +187,89 @@ def random_search_model(X_train, y_train, param_distributions, X_test=None,
         return best_model, best_params, y_pred, test_f1
     else:
         return best_model, best_params
+
+
+def xgb_Dask(X_train, y_train, X_test, y_test, best_params, random_state, desired_counts, max_class,
+             tree_method="hist", device="cpu", dashboard_address=":8999", rep=4, n_workers=4):
+
+    under_sampler = RandomUnderSampler(random_state=random_state,
+                                       sampling_strategy={max_class: desired_counts})
+    over_sampler = RandomOverSampler(random_state=random_state)
+    pipeline = Pipeline([('undersample', under_sampler),
+                         ('oversample', over_sampler)
+                        ])
+
+    X_train_res, y_train_res = pipeline.fit_resample(X_train, y_train)
+
+    cluster = LocalCluster(dashboard_address=dashboard_address, n_workers=n_workers)
+    client = Client(cluster)
+    print(client.dashboard_link)
+
+    X_train_res_dd = dd.from_pandas(X_train_res, npartitions=rep)
+    y_train_res_dd = dd.from_pandas(y_train_res - 1, npartitions=rep)
+
+    dtrain = dxgb.DaskDMatrix(client, X_train_res_dd,
+                              y_train_res_dd)
+
+    params = best_params
+    params["objective"] = "multi:softmax"
+    params["tree_method"] = tree_method
+    params["device"] = device
+    params['eval_metric'] = 'mlogloss'
+    params['num_class'] = len(np.unique(y_train_res))
+
+    model = dxgb.train(
+        client,
+        params,
+        dtrain,
+        num_boost_round=100,
+        evals=[(dtrain, "train")],
+    )
+
+    X_test_dd = dd.from_pandas(X_test, npartitions=rep)
+    y_test_dd = dd.from_pandas(y_test - 1, npartitions=rep)
+
+    y_pred = dxgb.predict(client, model, X_test_dd)
+
+    y_test_pd = y_test_dd.compute()
+    y_pred_pd = y_pred.compute()
+
+    score = f1_score(y_test_pd, y_pred_pd, average='macro')
+
+    return model, score, y_test_pd, y_pred_pd
+
+def xgbb(X_train, y_train, X_test, y_test, best_params, random_state, desired_counts, max_class,
+         tree_method="hist", device="cpu", n_jobs=4):
+    _, y_train_corrected = correct_target(y_train)
+    max_class = y_train_corrected.value_counts().idxmax()
+
+    under_sampler = RandomUnderSampler(random_state=random_state,
+                                       sampling_strategy={max_class: desired_counts})
+    over_sampler = RandomOverSampler(random_state=random_state)
+
+    params = best_params
+    params["objective"] = "multi:softmax"
+    params["tree_method"] = tree_method
+    params["device"] = device
+    params['eval_metric'] = 'mlogloss'
+    params['n_jobs'] = n_jobs
+    params['num_class'] = len(np.unique(y_train_corrected))
+
+    clf = xgboost.XGBClassifier(random_state=random_state,
+                                **params)
+
+    pipeline = Pipeline([('undersample', under_sampler),
+                         ('oversample', over_sampler),
+                         ('classifier', clf)
+                         ])
+
+    model = pipeline.fit(X_train, y_train_corrected)
+
+    _, y_test_corrected = correct_target(y_test)
+
+    y_pred = model.predict(X_test)
+    score = f1_score(y_test_corrected, y_pred, average='macro')
+
+    return model, score, y_pred
+
+
