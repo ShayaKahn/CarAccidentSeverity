@@ -190,19 +190,19 @@ def random_search_model(X_train, y_train, param_distributions, X_test=None,
         return best_model, best_params
 
 
-def xgb_Dask(X_train, y_train, X_test, y_test, best_params, random_state, desired_counts, max_class,
-             tree_method="hist", device="cpu", dashboard_address=":8999", rep=4, n_workers=4):
+def XgboostClassifierDask(X_train, y_train, X_test, y_test, best_params, random_state, desired_counts, max_class,
+             tree_method="hist", device="cpu", dashboard_address=":8999", rep=4, n_workers=4, threads_per_worker=12):
 
     under_sampler = RandomUnderSampler(random_state=random_state,
                                        sampling_strategy={max_class: desired_counts})
     over_sampler = RandomOverSampler(random_state=random_state)
     pipeline = Pipeline([('undersample', under_sampler),
-                         ('oversample', over_sampler)
-                        ])
+                         ('oversample', over_sampler)])
 
     X_train_res, y_train_res = pipeline.fit_resample(X_train, y_train)
 
-    cluster = LocalCluster(dashboard_address=dashboard_address, n_workers=n_workers)
+    cluster = LocalCluster(dashboard_address=dashboard_address, n_workers=n_workers,
+                           threads_per_worker=threads_per_worker)
     client = Client(cluster)
     print(client.dashboard_link)
 
@@ -235,12 +235,13 @@ def xgb_Dask(X_train, y_train, X_test, y_test, best_params, random_state, desire
     y_test_pd = y_test_dd.compute()
     y_pred_pd = y_pred.compute()
 
-    score = f1_score(y_test_pd, y_pred_pd, average='macro')
+    score_macro = f1_score(y_test_pd, y_pred_pd, average='macro')
+    score = f1_score(y_test_pd, y_pred_pd, average=None)
 
-    return model, score, y_test_pd, y_pred_pd
+    return model, (score_macro, score), y_test_pd, y_pred_pd
 
-def xgbb(X_train, y_train, X_test, y_test, best_params, random_state, desired_counts, max_class,
-         tree_method="hist", device="cpu", n_jobs=4):
+def XgboostClassifier(X_train, y_train, X_test, y_test, best_params, random_state, desired_counts,
+                      tree_method="hist", device="cpu", n_jobs=4):
     _, y_train_corrected = correct_target(y_train)
     max_class = y_train_corrected.value_counts().idxmax()
 
@@ -269,6 +270,8 @@ def xgbb(X_train, y_train, X_test, y_test, best_params, random_state, desired_co
     _, y_test_corrected = correct_target(y_test)
 
     y_pred = model.predict(X_test)
-    score = f1_score(y_test_corrected, y_pred, average='macro')
 
-    return model, score, y_pred
+    score_macro = f1_score(y_test, y_pred, average='macro')
+    score = f1_score(y_test, y_pred, average=None)
+
+    return model, (score_macro, score), y_pred
