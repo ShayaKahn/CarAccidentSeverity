@@ -74,13 +74,19 @@ There are several methods I will try to compare to deal with the imbalanced data
 
 I chose to use the macro-averaged F1 score to evaluate the performance of the models.
 
-## Model Performance Comparison
+## Model Performance Comparison for the optimal hyperparameters 
+
+Macro-averaged F1 score: 
 
 | Resampling Method       | Random Forest | XGBoost |
 |-------------------------|--------------|---------|
 | Random Under Sampling  | 0.53         | 0.55    |
 | Random Over Sampling   | 0.56         | 0.59    |
 | SMOTE Over Sampling    | 0.56         | 0.58    |
+
+## Model performance with XGBoost and Random Over Sampling on 1.5 million samples with optimal hyperparameters
+
+Macro-averaged F1 score: 0.73
 
 ## Conclusion
 
